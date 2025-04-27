@@ -1,17 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8">
-    <link rel="icon" href="/favicon.ico">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ShadowForge</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      body {
+        background: linear-gradient(135deg, #1e272e, #0f1519);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+      }
+      .loader {
+        border: 6px solid #222c36;
+        border-top: 6px solid #6c5ce7;
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        animation: spin 1s linear infinite;
+        margin-bottom: 1.5rem;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .loading-text {
+        color: #f5f6fa;
+        font-family: 'Inter', sans-serif;
+        font-size: 1.2rem;
+        text-align: center;
+        letter-spacing: 1px;
+      }
+      #app {
+        display: none;
+      }
+    </style>
   </head>
   <body>
+    <div id="loader-container">
+      <div class="loader"></div>
+      <div class="loading-text">Loading ShadowForge...</div>
+    </div>
     <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
+    <script type="module">
+      import('/src/main.js').then(() => {
+        document.getElementById('loader-container').style.display = 'none';
+        document.getElementById('app').style.display = '';
+      });
+    </script>
   </body>
 </html> 
