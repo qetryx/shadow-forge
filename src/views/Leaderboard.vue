@@ -19,14 +19,13 @@
             <tr>
               <th>Rank</th>
               <th>User</th>
-              <th>Downloads</th>
+              <th>Total Likes</th>
               <th>Uploads</th>
-              <th>Likes</th>
-              <th>Achievements</th>
+              <th>Top App</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(user, index) in users" :key="user.id">
+            <tr v-for="(user, index) in topUploaders" :key="user.id">
               <td class="rank">
                 <span :class="['rank-number', {
                   'gold': index === 0,
@@ -37,18 +36,26 @@
                 </span>
               </td>
               <td class="user">
-                <img :src="user.avatar" :alt="user.name" class="avatar">
-                <span class="name">{{ user.name }}</span>
+                <img :src="user.avatar_url || 'https://via.placeholder.com/40'" :alt="user.username" class="avatar">
+                <div class="user-details">
+                  <span class="name">{{ user.username || user.full_name }}</span>
+                  <span class="join-date">Joined {{ formatDate(user.created_at) }}</span>
+                </div>
               </td>
-              <td>{{ user.downloads }}</td>
-              <td>{{ user.uploads }}</td>
-              <td>{{ user.likes }}</td>
-              <td class="achievements">
-                <i v-for="achievement in user.achievements" 
-                   :key="achievement"
-                   :class="['fas', achievement.icon]"
-                   :title="achievement.name"
-                ></i>
+              <td class="likes">
+                <i class="fas fa-heart"></i>
+                {{ user.total_likes }}
+              </td>
+              <td>{{ user.total_uploads }}</td>
+              <td class="top-app">
+                <router-link v-if="user.top_app" :to="'/apps/' + user.top_app.id" class="app-link">
+                  {{ user.top_app.title }}
+                  <span class="app-likes">
+                    <i class="fas fa-heart"></i>
+                    {{ user.top_app.likes }}
+                  </span>
+                </router-link>
+                <span v-else>No apps yet</span>
               </td>
             </tr>
           </tbody>
@@ -70,14 +77,16 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, onMounted, inject } from 'vue'
 
 export default {
   name: 'Leaderboard',
   setup() {
+    const supabase = inject('supabase')
     const activeTab = ref('all')
     const currentPage = ref(1)
     const totalPages = ref(5)
+    const topUploaders = ref([])
 
     const tabs = [
       { id: 'all', label: 'All Time' },
@@ -85,50 +94,95 @@ export default {
       { id: 'week', label: 'This Week' }
     ]
 
-    // Dummy data for demonstration
-    const users = [
-      {
-        id: 1,
-        name: 'TechWizard',
-        avatar: 'https://via.placeholder.com/40',
-        downloads: '12.5k',
-        uploads: '45',
-        likes: '2.3k',
-        achievements: [
-          { name: 'Top Contributor', icon: 'fa-trophy' },
-          { name: 'Verified Developer', icon: 'fa-check-circle' }
-        ]
-      },
-      {
-        id: 2,
-        name: 'ThemeMaster',
-        avatar: 'https://via.placeholder.com/40',
-        downloads: '8.7k',
-        uploads: '32',
-        likes: '1.8k',
-        achievements: [
-          { name: 'Verified Developer', icon: 'fa-check-circle' }
-        ]
-      },
-      {
-        id: 3,
-        name: 'GamePro',
-        avatar: 'https://via.placeholder.com/40',
-        downloads: '15.2k',
-        uploads: '28',
-        likes: '3.1k',
-        achievements: [
-          { name: 'Top Contributor', icon: 'fa-trophy' }
-        ]
+    const fetchTopUploaders = async () => {
+      try {
+        // Get all apps with their likes count
+        const { data: apps, error: appsError } = await supabase
+          .from('apps')
+          .select('id, title, user_id, created_at')
+
+        if (appsError) {
+          console.error('Error fetching apps:', appsError)
+          return
+        }
+
+        // Get all users
+        const { data: users, error: usersError } = await supabase
+          .from('profiles')
+          .select('id, username, full_name, avatar_url, created_at')
+
+        if (usersError) {
+          console.error('Error fetching users:', usersError)
+          return
+        }
+
+        // Calculate total likes and uploads per user
+        const userStats = await Promise.all(users.map(async user => {
+          const userApps = apps.filter(app => app.user_id === user.id)
+          
+          // Get total likes for each app
+          const appLikesPromises = userApps.map(async app => {
+            const { count: likesCount } = await supabase
+              .from('likes')
+              .select('*', { count: 'exact' })
+              .eq('app_id', app.id)
+            return { ...app, likes: likesCount || 0 }
+          })
+          
+          const appsWithLikes = await Promise.all(appLikesPromises)
+          const totalLikes = appsWithLikes.reduce((sum, app) => sum + app.likes, 0)
+          const topApp = appsWithLikes.reduce((top, app) => {
+            return (!top || app.likes > top.likes) ? app : top
+          }, null)
+
+          // Get the avatar URL from the avatars bucket
+          let avatarUrl = 'https://via.placeholder.com/40'
+          if (user.avatar_url) {
+            try {
+              const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(user.avatar_url)
+              avatarUrl = publicUrl
+            } catch (storageError) {
+              console.error('Error getting avatar URL:', storageError)
+            }
+          }
+
+          return {
+            ...user,
+            avatar_url: avatarUrl,
+            total_likes: totalLikes,
+            total_uploads: userApps.length,
+            top_app: topApp
+          }
+        }))
+
+        // Sort by total likes
+        topUploaders.value = userStats
+          .sort((a, b) => b.total_likes - a.total_likes)
+          .slice(0, 10) // Get top 10
+      } catch (error) {
+        console.error('Error fetching top uploaders:', error)
       }
-    ]
+    }
+
+    const formatDate = (dateStr) => {
+      if (!dateStr) return ''
+      const date = new Date(dateStr)
+      return date.toLocaleDateString()
+    }
+
+    onMounted(() => {
+      fetchTopUploaders()
+    })
 
     return {
       activeTab,
       currentPage,
       totalPages,
       tabs,
-      users
+      topUploaders,
+      formatDate
     }
   }
 }
@@ -247,18 +301,51 @@ th {
   border: 2px solid var(--primary-color);
 }
 
+.user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .name {
   font-weight: bold;
 }
 
-.achievements {
-  display: flex;
-  gap: 10px;
+.join-date {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
-.achievements i {
-  color: var(--accent-color);
-  font-size: 1.2em;
+.likes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--error-color);
+}
+
+.top-app {
+  max-width: 200px;
+}
+
+.app-link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-color);
+  text-decoration: none;
+  transition: color var(--transition-normal);
+}
+
+.app-link:hover {
+  color: var(--primary-color);
+}
+
+.app-likes {
+  font-size: 0.9rem;
+  color: var(--error-color);
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .pagination {

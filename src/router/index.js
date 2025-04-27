@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/config/supabase'
+import Admin from '../views/Admin.vue'
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
@@ -45,6 +46,12 @@ const routes = [
     path: '/apps/:id',
     name: 'AppDetail',
     component: () => import('@/views/AppDetail.vue')
+  },
+  {
+    path: '/admin',
+    name: 'Admin',
+    component: Admin,
+    meta: { requiresAuth: true }
   }
 ]
 

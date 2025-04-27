@@ -15,8 +15,23 @@
           </div>
           <p class="description">{{ app.description }}</p>
           <div class="app-uploaded-by">
-            <span>Uploaded by: <b>{{ uploaderName || app.user_id }}</b></span>
-            <span>Uploaded on: {{ formatDate(app.created_at) }}</span>
+            <div class="uploader-info">
+              <img :src="uploaderAvatar" :alt="uploaderName" class="uploader-avatar">
+              <div class="uploader-details">
+                <span>Uploaded by: <b>{{ uploaderName || app.user_id }}</b></span>
+                <span>Uploaded on: {{ formatDate(app.created_at) }}</span>
+              </div>
+            </div>
+            <div class="like-section">
+              <button 
+                class="like-btn" 
+                :class="{ 'liked': hasLiked }"
+                @click="toggleLike"
+              >
+                <i class="fas fa-heart"></i>
+                <span>{{ app.likes || 0 }}</span>
+              </button>
+            </div>
           </div>
           <div class="app-actions">
             <a :href="app.app_url" class="btn btn-primary" target="_blank">
@@ -44,20 +59,126 @@ export default {
     const route = useRoute()
     const app = ref(null)
     const uploaderName = ref('')
+    const uploaderAvatar = ref('')
+    const hasLiked = ref(false)
 
     const fetchApp = async () => {
-      const { data, error } = await supabase.from('apps').select('*').eq('id', route.params.id).single()
-      if (!error && data) {
-        app.value = data
-        // Fetch uploader's username from profiles table
-        if (data.user_id) {
-          const { data: profile } = await supabase.from('profiles').select('username, full_name').eq('id', data.user_id).single()
-          if (profile && profile.username) {
-            uploaderName.value = profile.username
-          } else if (profile && profile.full_name) {
-            uploaderName.value = profile.full_name
+      try {
+        const { data, error } = await supabase
+          .from('apps')
+          .select('*')
+          .eq('id', route.params.id)
+          .single()
+
+        if (!error && data) {
+          app.value = data
+          
+          // Fetch uploader's profile
+          if (data.user_id) {
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('username, full_name, avatar_url')
+              .eq('id', data.user_id)
+              .single()
+
+            if (profile && !profileError) {
+              uploaderName.value = profile.username || profile.full_name
+              
+              // Get the avatar URL from the avatars bucket
+              if (profile.avatar_url) {
+                try {
+                  const { data: { publicUrl } } = supabase.storage
+                    .from('avatars')
+                    .getPublicUrl(profile.avatar_url)
+                  uploaderAvatar.value = publicUrl
+                } catch (storageError) {
+                  console.error('Error getting avatar URL:', storageError)
+                  uploaderAvatar.value = 'https://via.placeholder.com/40'
+                }
+              } else {
+                uploaderAvatar.value = 'https://via.placeholder.com/40'
+              }
+            } else {
+              console.error('Error fetching profile:', profileError)
+              uploaderName.value = data.user_id
+              uploaderAvatar.value = 'https://via.placeholder.com/40'
+            }
+          }
+
+          // Get the total likes count
+          const { count: likesCount } = await supabase
+            .from('likes')
+            .select('*', { count: 'exact' })
+            .eq('app_id', data.id)
+
+          app.value.likes = likesCount || 0
+          
+          // Check if current user has liked this app
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const { data: like } = await supabase
+              .from('likes')
+              .select('*')
+              .eq('app_id', data.id)
+              .eq('user_id', user.id)
+              .single()
+
+            hasLiked.value = !!like
           }
         }
+      } catch (error) {
+        console.error('Error fetching app:', error)
+      }
+    }
+
+    const toggleLike = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        // Redirect to login if not authenticated
+        return
+      }
+
+      try {
+        if (hasLiked.value) {
+          // Unlike
+          const { error } = await supabase
+            .from('likes')
+            .delete()
+            .match({ app_id: app.value.id, user_id: user.id })
+
+          if (!error) {
+            // Update the app's like count
+            const { error: updateError } = await supabase
+              .from('apps')
+              .update({ likes: (app.value.likes || 0) - 1 })
+              .eq('id', app.value.id)
+
+            if (!updateError) {
+              app.value.likes = Math.max(0, (app.value.likes || 0) - 1)
+              hasLiked.value = false
+            }
+          }
+        } else {
+          // Like
+          const { error } = await supabase
+            .from('likes')
+            .insert([{ app_id: app.value.id, user_id: user.id }])
+
+          if (!error) {
+            // Update the app's like count
+            const { error: updateError } = await supabase
+              .from('apps')
+              .update({ likes: (app.value.likes || 0) + 1 })
+              .eq('id', app.value.id)
+
+            if (!updateError) {
+              app.value.likes = (app.value.likes || 0) + 1
+              hasLiked.value = true
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error toggling like:', error)
       }
     }
 
@@ -74,6 +195,9 @@ export default {
     return {
       app,
       uploaderName,
+      uploaderAvatar,
+      hasLiked,
+      toggleLike,
       formatDate
     }
   }
@@ -147,8 +271,51 @@ export default {
   font-size: 1.05rem;
   color: var(--text-muted);
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.uploader-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.uploader-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--primary-color);
+}
+.uploader-details {
+  display: flex;
   flex-direction: column;
   gap: 4px;
+}
+.like-section {
+  display: flex;
+  align-items: center;
+}
+.like-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 2px solid var(--glow-color);
+  background: transparent;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+.like-btn:hover {
+  background: var(--glow-color);
+}
+.like-btn.liked {
+  background: var(--error-color);
+  border-color: var(--error-color);
+  color: white;
+}
+.like-btn i {
+  font-size: 1.1rem;
 }
 .app-actions {
   margin-top: 1.5rem;
