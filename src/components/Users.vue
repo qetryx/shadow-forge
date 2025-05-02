@@ -129,15 +129,19 @@ export default {
 }
 
 .user-card {
-  background: #fff;
-  border-radius: 12px;
+  background: var(--card-bg);
+  border-radius: 15px;
+  overflow: hidden;
+  transition: all var(--transition-normal);
+  border: 1px solid var(--glow-color);
+  box-shadow: var(--glow-shadow);
   padding: 20px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease;
+  animation: fadeIn 0.5s ease backwards;
 }
 
 .user-card:hover {
   transform: translateY(-5px);
+  box-shadow: var(--glow-shadow);
 }
 
 .user-header {
@@ -224,5 +228,10 @@ export default {
 
 .error {
   color: #ff4444;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 </style> 

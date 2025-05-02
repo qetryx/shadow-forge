@@ -12,6 +12,9 @@
             <router-link v-if="isAuthenticated" to="/upload" class="btn btn-secondary">
               <i class="fas fa-upload"></i> Upload App
             </router-link>
+            <router-link to="/users" class="btn btn-secondary">
+              <i class="fas fa-users"></i> Users
+            </router-link>
           </div>
         </div>
       </div>

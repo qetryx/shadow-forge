@@ -189,6 +189,7 @@ export default {
 .nav-section {
   display: flex;
   gap: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .auth-section {
