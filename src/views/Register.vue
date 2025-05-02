@@ -171,38 +171,23 @@ export default {
               full_name: formData.value.fullName,
               bio: formData.value.bio,
               newsletter: formData.value.newsletter
-            },
-            emailRedirectTo: `${window.location.origin}/verify-email`
+            }
           }
         })
 
         if (error) throw error
 
-        // Generate verification token
-        const verificationToken = Math.random().toString(36).substring(2, 15)
-        
-        // Update profile with verification token
+        // Update profile to mark email as verified
         const { error: updateError } = await supabase
           .from('profiles')
           .update({
-            verification_token: verificationToken,
-            email_verified: false
+            email_verified: true
           })
           .eq('id', data.user.id)
 
         if (updateError) throw updateError
 
-        // Send verification email
-        const { error: emailError } = await supabase.auth.signInWithOtp({
-          email: formData.value.email,
-          options: {
-            emailRedirectTo: `${window.location.origin}/verify-email`
-          }
-        })
-
-        if (emailError) throw emailError
-
-        alert('Registration successful! Please check your email to verify your account.')
+        alert('Registration successful! You can now login.')
         router.push('/login')
       } catch (error) {
         console.error('Registration error:', error)

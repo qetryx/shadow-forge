@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/config/supabase'
 import Admin from '../views/Admin.vue'
+import Posts from '../components/Posts.vue'
+import Users from '../components/Users.vue'
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
@@ -38,11 +40,6 @@ const routes = [
     component: () => import('@/views/Register.vue')
   },
   {
-    path: '/verify-email',
-    name: 'VerifyEmail',
-    component: () => import('@/views/VerifyEmail.vue')
-  },
-  {
     path: '/apps/:id',
     name: 'AppDetail',
     component: () => import('@/views/AppDetail.vue')
@@ -52,6 +49,42 @@ const routes = [
     name: 'Admin',
     component: Admin,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('@/views/Profile.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/posts',
+    name: 'Posts',
+    component: Posts
+  },
+  {
+    path: '/posts/:id',
+    name: 'PostDetails',
+    component: () => import('../components/PostDetails.vue')
+  },
+  {
+    path: '/users',
+    name: 'Users',
+    component: Users
+  },
+  {
+    path: '/users/:userId/posts',
+    name: 'UserPosts',
+    component: () => import('../components/UserPosts.vue')
+  },
+  {
+    path: '/users/:userId/todos',
+    name: 'UserTodos',
+    component: () => import('../components/UserTodos.vue')
+  },
+  {
+    path: '/users/:userId/albums',
+    name: 'UserAlbums',
+    component: () => import('../components/UserAlbums.vue')
   }
 ]
 

@@ -6,8 +6,6 @@ CREATE TABLE IF NOT EXISTS profiles (
   bio TEXT,
   avatar_url TEXT,
   newsletter BOOLEAN DEFAULT false,
-  email_verified BOOLEAN DEFAULT false,
-  verification_token TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   PRIMARY KEY (id)
